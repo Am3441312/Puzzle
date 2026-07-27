@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Scan & Play Picture Puzzle</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #121214;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            color: #4ade80;
+        }
+        p {
+            margin: 0 0 15px 0;
+            font-size: 0.9rem;
+            color: #a1a1aa;
+        }
+        #timer-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f43f5e;
+            background: #27272a;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #3f3f46;
+            min-width: 70px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #puzzle-container {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            height: 90vw;
+            max-height: 400px;
+            background: #27272a;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .tile {
+            position: absolute;
+            box-sizing: border-box;
+            border: 1.5px solid #121214;
+            transition: all 0.2s ease-out;
+            touch-action: none;
+            border-radius: 4px;
+        }
+        #game-message {
+            display: none;
+            margin-top: 15px;
+            padding: 10px 20px;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            animation: pop 0.3s ease;
+        }
+        .win {
+            background: #22c55e;
+        }
+        .game-over {
+            background: #ef4444;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:active {
+            background: #1d4ed8;
+        }
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Picture Puzzle</h1>
+    <p>Tap adjacent tiles to slide them into the empty space!</p>
+
+    <div id="timer-display">03:00</div>
+
+    <div id="puzzle-container"></div>
+    
+    <div id="game-message"></div>
+    <button onclick="resetGame()">Restart / Rescramble</button>
+
+    <script>
+        const container = document.getElementById('puzzle-container');
+        const gameMessage = document.getElementById('game-message');
+        const timerDisplay = document.getElementById('timer-display');
+        
+        const imgUrl = "https://am3441312.github.io/Logo-Picture/1784967280159.jpg";
+        
+        const size = 3; // Hardcoded to 3x3
+        const timeLimit = 3 * 60; // 3 minutes in seconds
+        
+        let tiles = [];
+        let emptyTile = { row: size - 1, col: size - 1 };
+        
+        let timerInterval = null;
+        let timeRemaining = timeLimit;
+        let isTimerRunning = false;
+        let isGameOver = false;
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (isTimerRunning || isGameOver) return;
+            isTimerRunning = true;
+            
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    isTimerRunning = false;
+                    isGameOver = true;
+                    showMessage("⏱️ Game Over! Time ran out.", "game-over");
+                }
+            }, 1000);
+        }
+
+        function showMessage(text, className) {
+            gameMessage.textContent = text;
+            gameMessage.className = className;
+            gameMessage.style.display = 'block';
+        }
+
+        // Initialize board
+        function createPuzzle() {
+            tiles = [];
+            container.innerHTML = '';
+            gameMessage.style.display = 'none';
+            emptyTile = { row: size - 1, col: size - 1 };
+
+            // Reset Timer state
+            clearInterval(timerInterval);
+            timeRemaining = timeLimit;
+            isTimerRunning = false;
+            isGameOver = false;
+            updateTimerDisplay();
+
+            const tileSizePercent = 100 / size;
+
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (r === size - 1 && c === size - 1) {
+                        continue;
+                    }
+                    
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    
+                    tile.style.width = `${tileSizePercent}%`;
+                    tile.style.height = `${tileSizePercent}%`;
+                    
+                    tile.style.backgroundImage = `url('${imgUrl}')`;
+                    tile.style.backgroundSize = `${size * 100}% ${size * 100}%`;
+                    
+                    const posX = (c / (size - 1)) * 100;
+                    const posY = (r / (size - 1)) * 100;
+                    tile.style.backgroundPosition = `${posX}% ${posY}%`;
+                    
+                    const tileObj = {
+                        element: tile,
+                        correctRow: r,
+                        correctCol: c,
+                        currentRow: r,
+                        currentCol: c
+                    };
+                    
+                    tile.addEventListener('pointerdown', () => moveTile(tileObj));
+                    
+                    tiles.push(tileObj);
+                    container.appendChild(tile);
+                }
+            }
+            shuffleGrid();
+        }
+
+        function updatePositions() {
+            const step = 100 / size;
+            tiles.forEach(tile => {
+                tile.element.style.top = `${tile.currentRow * step}%`;
+                tile.element.style.left = `${tile.currentCol * step}%`;
+            });
+        }
+
+        // Movement logic
+        function moveTile(tile) {
+            if (isGameOver) return; // Prevent movement if game is over
+
+            const rowDiff = Math.abs(tile.currentRow - emptyTile.row);
+            const colDiff = Math.abs(tile.currentCol - emptyTile.col);
+            
+            if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
+                
+                // Start timer on first tile movement
+                if (!isTimerRunning) {
+                    startTimer();
+                }
+
+                const tempRow = tile.currentRow;
+                const tempCol = tile.currentCol;
+                
+                tile.currentRow = emptyTile.row;
+                tile.currentCol = emptyTile.col;
+                
+                emptyTile.row = tempRow;
+                emptyTile.col = tempCol;
+                
+                updatePositions();
+                checkWinCondition();
+            }
+        }
+
+        function shuffleGrid() {
+            const totalShuffles = size * size * 15;
+            
+            for (let i = 0; i < totalShuffles; i++) {
+                const validMoves = tiles.filter(tile => {
+                    const rowDiff = Math.abs(tile.currentRow - emptyTile.row);
+                    const colDiff = Math.abs(tile.currentCol - emptyTile.col);
+                    return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+                });
+                
+                const randomTile = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                const tempRow = randomTile.currentRow;
+                const tempCol = randomTile.currentCol;
+                randomTile.currentRow = emptyTile.row;
+                randomTile.currentCol = emptyTile.col;
+                emptyTile.row = tempRow;
+                emptyTile.col = tempCol;
+            }
+            updatePositions();
+        }
+
+        function checkWinCondition() {
+            const isWin = tiles.every(tile => tile.currentRow === tile.correctRow && tile.currentCol === tile.correctCol);
+            if (isWin) {
+                clearInterval(timerInterval); // Stop timer on win
+                isTimerRunning = false;
+                isGameOver = true; // Prevent further moves after winning
+                showMessage("🎉 You Solved It! Spectacular job!", "win");
+            }
+        }
+
+        function resetGame() {
+            createPuzzle();
+        }
+
+        // Start
+        createPuzzle();
+    </script>
+</body>
+</html>
